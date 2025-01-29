@@ -105,7 +105,7 @@ func loadedConfig(c configuration, configPath string) *Configuration {
 	conf.Optimize = c.Optimize
 
 	// TODO add to config.yml
-	conf.OptimizeBeforeWriting = true
+	conf.OptimizeBeforeWriting = false
 
 	conf.OptimizeResourceDicts = c.OptimizeResourceDicts
 	conf.OptimizeDuplicateContentStreams = c.OptimizeDuplicateContentStreams
