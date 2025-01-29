@@ -959,50 +959,6 @@ func calcRedundantObjects(ctx *model.Context) error {
 	return nil
 }
 
-// Iterate over all pages and optimize resources.
-// Get rid of duplicate embedded fonts and images.
-func optimizeFontAndImages(ctx *model.Context) error {
-	if log.OptimizeEnabled() {
-		log.Optimize.Println("optimizeFontAndImages begin")
-	}
-
-	// Get a reference to the PDF indirect reference of the page tree root dict.
-	indRefPages, err := ctx.Pages()
-	if err != nil {
-		return err
-	}
-
-	// Dereference and get a reference to the page tree root dict.
-	pageTreeRootDict, err := ctx.XRefTable.DereferenceDict(*indRefPages)
-	if err != nil {
-		return err
-	}
-
-	// Prepare optimization environment.
-	ctx.Optimize.PageFonts = make([]types.IntSet, ctx.PageCount)
-	ctx.Optimize.PageImages = make([]types.IntSet, ctx.PageCount)
-
-	// Iterate over page dicts and optimize resources.
-	_, err = parsePagesDict(ctx, pageTreeRootDict, 0)
-	if err != nil {
-		return err
-	}
-
-	ctx.Optimize.ContentStreamCache = map[int]*types.StreamDict{}
-	ctx.Optimize.FormStreamCache = map[int]*types.StreamDict{}
-
-	// Identify all duplicate objects.
-	if err = calcRedundantObjects(ctx); err != nil {
-		return err
-	}
-
-	if log.OptimizeEnabled() {
-		log.Optimize.Println("optimizeFontAndImages end")
-	}
-
-	return nil
-}
-
 // Return stream length for font file object.
 func streamLengthFontFile(xRefTable *model.XRefTable, indirectRef *types.IndirectRef) (*int64, error) {
 	if log.OptimizeEnabled() {
@@ -1472,11 +1428,6 @@ func OptimizeXRefTable(ctx *model.Context) error {
 			return err
 		}
 	}
-
-	// // Get rid of duplicate embedded fonts and images.
-	// if err := optimizeFontAndImages(ctx); err != nil {
-	// 	return err
-	// }
 
 	if err := ensureDirectWidthForXObjs(ctx); err != nil {
 		return err
