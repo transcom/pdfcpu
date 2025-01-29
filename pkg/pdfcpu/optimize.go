@@ -1473,10 +1473,10 @@ func OptimizeXRefTable(ctx *model.Context) error {
 		}
 	}
 
-	// // Get rid of duplicate embedded fonts and images.
-	// if err := optimizeFontAndImages(ctx); err != nil {
-	// 	return err
-	// }
+	// Get rid of duplicate embedded fonts and images.
+	if err := optimizeFontAndImages(ctx); err != nil {
+		return err
+	}
 
 	if err := ensureDirectWidthForXObjs(ctx); err != nil {
 		return err
