@@ -75,8 +75,15 @@ func EnsureOutlines(ctx *model.Context, fName string, append bool) error {
 			return err
 		}
 
-		d["First"] = *f
-		d["Last"] = *l
+		if f == nil || l == nil {
+			// Remove empty outline dict
+			delete(d, "First")
+			delete(d, "Last")
+		} else {
+			d["First"] = *f
+			d["Last"] = *l
+		}
+
 		if count != nil && *count != 0 {
 			c = *count
 		}
