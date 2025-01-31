@@ -49,10 +49,10 @@ timestampFormat: 2006-01-02 15:04
 dateFormat: 2006-01-02
 
 # toggle optimization
-optimize: true
+optimize: false
 
 # optimize page resources via content stream analysis.
-optimizeResourceDicts: true
+optimizeResourceDicts: false
 
 # optimize duplicate content streams across pages.
 optimizeDuplicateContentStreams: false
