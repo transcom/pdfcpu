@@ -181,12 +181,18 @@ func ReadValidateAndOptimize(rs io.ReadSeeker, conf *model.Configuration) (ctx *
 		return nil, err
 	}
 
-	// With the exception of commands utilizing structs provided the Optimize step
-	// command optimization of the cross reference table is optional but usually recommended.
-	// For large or complex files it may make sense to skip optimization and set conf.Optimize = false.
-	if cmdAssumingOptimization(conf.Cmd) || conf.Optimize {
-		if err = OptimizeContext(ctx); err != nil {
-			return nil, err
+	// This function gets called sometimes without proper optimization config checks,
+	// the best approach would be to prevent the calling functions from doing this as
+	// they should call another function, but the quickest fix is to check here.
+	// Pretty? No. Functional? Heck yeah!
+	if conf.Optimize {
+		// With the exception of commands utilizing structs provided the Optimize step
+		// command optimization of the cross reference table is optional but usually recommended.
+		// For large or complex files it may make sense to skip optimization and set conf.Optimize = false.
+		if cmdAssumingOptimization(conf.Cmd) || conf.Optimize {
+			if err = OptimizeContext(ctx); err != nil {
+				return nil, err
+			}
 		}
 	}
 
