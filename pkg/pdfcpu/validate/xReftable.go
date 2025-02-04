@@ -1052,7 +1052,7 @@ func validateRootObject(ctx *model.Context) error {
 		{validateCollection, OPTIONAL, model.V17},
 		{validateNeedsRendering, OPTIONAL, model.V17},
 	} {
-		if !f.required && xRefTable.Version() < f.sinceVersion {
+		if !f.required && xRefTable.Version() < f.sinceVersion || isValidateOutlines(f.validate) {
 			// Ignore optional fields if currentVersion < sinceVersion
 			// This is really a workaround for explicitly extending relaxed validation.
 			continue
@@ -1077,6 +1077,11 @@ func validateRootObject(ctx *model.Context) error {
 	}
 
 	return err
+}
+
+// Helper func to compare two funcs, go doesn't allow direct comparisons
+func isValidateOutlines(f func(*model.XRefTable, types.Dict, bool, model.Version) error) bool {
+	return fmt.Sprintf("%p", f) == fmt.Sprintf("%p", validateOutlines)
 }
 
 func validateAdditionalStreams(xRefTable *model.XRefTable) error {
