@@ -77,8 +77,8 @@ func EnsureOutlines(ctx *model.Context, fName string, append bool) error {
 
 		if f == nil || l == nil {
 			// Remove empty outline dict
-			delete(d, "First")
-			delete(d, "Last")
+			d["First"] = nil
+			d["Last"] = nil
 		} else {
 			d["First"] = *f
 			d["Last"] = *l
