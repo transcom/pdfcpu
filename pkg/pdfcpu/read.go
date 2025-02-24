@@ -175,8 +175,23 @@ func offsetLastXRefSection(ctx *model.Context, skip int64) (*int64, error) {
 	}
 
 	for i := 1; offset == 0; i++ {
+		// Allow for buf chunking but add protection to
+		// not seek a negative amount
+		bufChunkOffSet := -int64(i)*bufSize - skip
+		// Set the minimum offset to the start of the file
+		minOffset := -ctx.Read.FileSize
 
-		off, err := rs.Seek(-int64(i)*bufSize-skip, io.SeekEnd)
+		// Clamp it
+		if bufChunkOffSet < minOffset {
+			bufChunkOffSet = minOffset
+		}
+
+		if bufChunkOffSet == minOffset {
+			// This is the start of the file, there is nothing left to search backwards on
+			return nil, errors.New("pdfcpu: cannot find startxref, file may be corrupted")
+		}
+
+		off, err := rs.Seek(bufChunkOffSet, io.SeekEnd)
 		if err != nil {
 			return nil, errors.New("the file may be damaged.")
 		}
