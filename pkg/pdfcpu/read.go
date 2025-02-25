@@ -891,6 +891,10 @@ func scanForPreviousXref(ctx *model.Context, offset *int64) *int64 {
 
 	for i := int64(1); ; i++ {
 		off = *offset - i*bufSize
+		if off < 0 {
+			// EOF reached, no more data
+			return nil
+		}
 		rd, err := newPositionedReader(ctx.Read.RS, &off)
 		if err != nil {
 			return nil
