@@ -156,8 +156,8 @@ type XRefTable struct {
 	// Statistics
 	Stats PDFStats
 
-	Tagged         bool // File is using tags. This is important for ???
-	AAPLExtensions bool // File is using Apple extensions for annotations and keywords.
+	Tagged           bool // File is using tags. This is important for ???
+	CustomExtensions bool // File is using custom extensions for annotations and/or keywords.
 
 	// Validation
 	CurPage        int                       // current page during validation
@@ -2764,14 +2764,12 @@ func (xRefTable *XRefTable) AppendContent(pageDict types.Dict, bb []byte) error 
 	switch o := obj.(type) {
 
 	case types.StreamDict:
-
 		if err := appendToContentStream(&o, bb); err != nil {
 			return err
 		}
 		entry.Object = o
 
 	case types.Array:
-
 		// Get stream dict for last array element.
 		o1 := o[len(o)-1]
 		indRef, _ = o1.(types.IndirectRef)
@@ -2779,15 +2777,13 @@ func (xRefTable *XRefTable) AppendContent(pageDict types.Dict, bb []byte) error 
 		genNr := indRef.GenerationNumber.Value()
 		entry, _ = xRefTable.FindTableEntry(objNr, genNr)
 		sd, _ := (entry.Object).(types.StreamDict)
-
 		if err := appendToContentStream(&sd, bb); err != nil {
 			return err
 		}
-		entry.Object = o
+		entry.Object = sd
 
 	default:
 		return errors.Errorf("pdfcpu: corrupt page \"Content\"")
-
 	}
 
 	return nil

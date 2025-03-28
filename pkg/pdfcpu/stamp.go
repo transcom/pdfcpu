@@ -746,7 +746,7 @@ func createPDFResForWM(ctx *model.Context, wm *model.Watermark) error {
 }
 
 func createImageResForWM(ctx *model.Context, wm *model.Watermark) (err error) {
-	wm.Img, wm.Width, wm.Height, err = model.CreateImageResource(ctx.XRefTable, wm.Image, false, false)
+	wm.Img, wm.Width, wm.Height, err = model.CreateImageResource(ctx.XRefTable, wm.Image)
 	return err
 }
 
@@ -1342,6 +1342,7 @@ func handleLink(ctx *model.Context, pageIndRef *types.IndirectRef, d types.Dict,
 
 	ann := model.NewLinkAnnotation(
 		*wm.BbTrans.EnclosingRectangle(5.0), // rect
+		0,                                   // apObjNr
 		"",                                  // contents
 		"pdfcpu",                            // id
 		"",                                  // modDate
@@ -1569,10 +1570,22 @@ func AddWatermarksSliceMap(ctx *model.Context, m map[int][]*model.Watermark) err
 		onTop   bool
 		opacity float64
 	)
-	for _, wms := range m {
-		onTop = wms[0].OnTop
-		opacity = wms[0].Opacity
-		break
+	m1 := map[int][]*model.Watermark{}
+	gotParms := false
+	for p, wms := range m {
+		if len(wms) == 0 {
+			continue
+		}
+		m1[p] = wms
+		if !gotParms {
+			onTop = wms[0].OnTop
+			opacity = wms[0].Opacity
+			gotParms = true
+		}
+	}
+
+	if len(m1) == 0 {
+		errors.Errorf("pdfcpu: no watermarks available")
 	}
 
 	ocgIndRef, err := prepareOCPropertiesInRoot(ctx, onTop)
@@ -1585,7 +1598,7 @@ func AddWatermarksSliceMap(ctx *model.Context, m map[int][]*model.Watermark) err
 		return err
 	}
 
-	fm, err := createResourcesForWMSliceMap(ctx, m, ocgIndRef, extGStateIndRef, onTop, opacity)
+	fm, err := createResourcesForWMSliceMap(ctx, m1, ocgIndRef, extGStateIndRef, onTop, opacity)
 	if err != nil {
 		return err
 	}
@@ -1600,7 +1613,7 @@ func AddWatermarksSliceMap(ctx *model.Context, m map[int][]*model.Watermark) err
 			if !v {
 				continue
 			}
-			for _, wm := range m[pageNr] {
+			for _, wm := range m1[pageNr] {
 				if wm.IsText() && wm.FontName == fontName {
 					wm.Font = ir
 				}
@@ -1608,7 +1621,7 @@ func AddWatermarksSliceMap(ctx *model.Context, m map[int][]*model.Watermark) err
 		}
 	}
 
-	for k, wms := range m {
+	for k, wms := range m1 {
 		for _, wm := range wms {
 			if err := addPageWatermark(ctx, k, *wm); err != nil {
 				return err

@@ -79,7 +79,7 @@ func XRefTable(ctx *model.Context) error {
 
 	xRefTable.Valid = true
 
-	if xRefTable.AAPLExtensions && log.CLIEnabled() {
+	if xRefTable.CustomExtensions && log.CLIEnabled() {
 		log.CLI.Println("Note: custom extensions will not be validated.")
 	}
 
@@ -226,6 +226,8 @@ func validateNames(xRefTable *model.XRefTable, rootDict types.Dict, required boo
 			"URLS", "EmbeddedFiles", "AlternatePresentations", "Renditions"})
 	}
 
+	d1 := types.Dict{}
+
 	for treeName, value := range d {
 
 		if ok := validateNameTreeName(treeName); !ok {
@@ -248,6 +250,8 @@ func validateNames(xRefTable *model.XRefTable, rootDict types.Dict, required boo
 			continue
 		}
 
+		d1.Insert(treeName, value)
+
 		_, _, tree, err := validateNameTree(xRefTable, treeName, d, true)
 		if err != nil {
 			return err
@@ -258,6 +262,11 @@ func validateNames(xRefTable *model.XRefTable, rootDict types.Dict, required boo
 			xRefTable.Names[treeName] = tree
 		}
 
+	}
+
+	delete(rootDict, "Names")
+	if len(d1) > 0 {
+		rootDict["Names"] = d1
 	}
 
 	return nil
@@ -1068,9 +1077,15 @@ func validateRootObject(ctx *model.Context) error {
 		return err
 	}
 
-	err = checkForBrokenLinks(ctx)
+	// Validate form fields against page annotations.
+	if xRefTable.Form != nil {
+		if err := validateFormFieldsAgainstPageAnnotations(xRefTable); err != nil {
+			return err
+		}
+	}
 
-	if err == nil {
+	// Validate links.
+	if err = checkForBrokenLinks(ctx); err == nil {
 		if log.ValidateEnabled() {
 			log.Validate.Println("*** validateRootObject end ***")
 		}

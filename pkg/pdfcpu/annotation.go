@@ -152,12 +152,19 @@ func Annotation(xRefTable *model.XRefTable, d types.Dict) (model.AnnotationRende
 		return nil, err
 	}
 
+	var apObjNr int
+	indRef := d.IndirectRefEntry("AP")
+	if indRef != nil {
+		apObjNr = indRef.ObjectNumber.Value()
+	}
+
 	contents := ""
 	if c, ok := d["Contents"]; ok {
 		contents, err = xRefTable.DereferenceStringOrHexLiteral(c, model.V10, nil)
 		if err != nil {
 			return nil, err
 		}
+		contents = types.RemoveControlChars(contents)
 	}
 
 	var nm string
@@ -178,7 +185,7 @@ func Annotation(xRefTable *model.XRefTable, d types.Dict) (model.AnnotationRende
 
 	case "Text":
 		popupIndRef := d.IndirectRefEntry("Popup")
-		ann = model.NewTextAnnotation(*r, contents, nm, "", f, nil, "", popupIndRef, nil, "", "", 0, 0, 0, true, "")
+		ann = model.NewTextAnnotation(*r, apObjNr, contents, nm, "", f, nil, "", popupIndRef, nil, "", "", 0, 0, 0, true, "")
 
 	case "Link":
 		var uri string
@@ -198,16 +205,16 @@ func Annotation(xRefTable *model.XRefTable, d types.Dict) (model.AnnotationRende
 			}
 		}
 		dest := (*model.Destination)(nil) // will not collect link dest during validation.
-		ann = model.NewLinkAnnotation(*r, contents, nm, "", f, nil, dest, uri, nil, false, 0, model.BSSolid)
+		ann = model.NewLinkAnnotation(*r, apObjNr, contents, nm, "", f, nil, dest, uri, nil, false, 0, model.BSSolid)
 
 	case "Popup":
 		parentIndRef := d.IndirectRefEntry("Parent")
-		ann = model.NewPopupAnnotation(*r, contents, nm, "", f, nil, 0, 0, 0, parentIndRef, false)
+		ann = model.NewPopupAnnotation(*r, apObjNr, contents, nm, "", f, nil, 0, 0, 0, parentIndRef, false)
 
 	// TODO handle remaining annotation types.
 
 	default:
-		ann = model.NewAnnotationForRawType(*subtype, *r, contents, nm, "", f, nil, 0, 0, 0)
+		ann = model.NewAnnotationForRawType(*subtype, *r, apObjNr, contents, nm, "", f, nil, 0, 0, 0)
 
 	}
 
@@ -243,7 +250,7 @@ func AnnotationsForSelectedPages(ctx *model.Context, selectedPages types.IntSet)
 	return m
 }
 
-func prepareHeader(horSep *[]int, maxLen *AnnotListMaxLengths) string {
+func prepareHeader(horSep *[]int, maxLen *AnnotListMaxLengths, customAnnot bool) string {
 	s := "     Obj# "
 	if maxLen.ObjNr > 4 {
 		s += strings.Repeat(" ", maxLen.ObjNr-4)
@@ -270,17 +277,27 @@ func prepareHeader(horSep *[]int, maxLen *AnnotListMaxLengths) string {
 
 	s += draw.VBar + " Content"
 	if maxLen.Content > 7 {
-		s += strings.Repeat(" ", maxLen.Rect-7)
-		*horSep = append(*horSep, 8+maxLen.Rect-7)
+		s += strings.Repeat(" ", maxLen.Content-7)
+		*horSep = append(*horSep, 8+maxLen.Content-7)
 	} else {
 		*horSep = append(*horSep, 8)
+	}
+
+	if customAnnot {
+		s += draw.VBar + " Type"
+		if maxLen.Type > 4 {
+			s += strings.Repeat(" ", maxLen.Type-4)
+			*horSep = append(*horSep, 5+maxLen.Type-4)
+		} else {
+			*horSep = append(*horSep, 5)
+		}
 	}
 
 	return s
 }
 
 type AnnotListMaxLengths struct {
-	ObjNr, ID, Rect, Content int
+	ObjNr, ID, Rect, Content, Type int
 }
 
 // ListAnnotations returns a formatted list of annotations.
@@ -315,6 +332,7 @@ func ListAnnotations(annots map[int]model.PgAnnots) (int, []string, error) {
 			var maxLen AnnotListMaxLengths
 			maxLen.ID = 2
 			maxLen.Content = len("Content")
+			maxLen.Type = len("Type")
 
 			var objNrs []int
 			for objNr, ann := range annots.Map {
@@ -332,6 +350,9 @@ func ListAnnotations(annots map[int]model.PgAnnots) (int, []string, error) {
 				if len(ann.ContentString()) > maxLen.Content {
 					maxLen.Content = len(ann.ContentString())
 				}
+				if len(ann.CustomTypeString()) > maxLen.Type {
+					maxLen.Type = len(ann.CustomTypeString())
+				}
 			}
 			sort.Ints(objNrs)
 			ss = append(ss, "")
@@ -340,7 +361,7 @@ func ListAnnotations(annots map[int]model.PgAnnots) (int, []string, error) {
 			horSep := []int{}
 
 			// Render header.
-			ss = append(ss, prepareHeader(&horSep, &maxLen))
+			ss = append(ss, prepareHeader(&horSep, &maxLen, annType == "Custom"))
 
 			// Render separator.
 			ss = append(ss, draw.HorSepLine(horSep))
@@ -364,8 +385,15 @@ func ListAnnotations(annots map[int]model.PgAnnots) (int, []string, error) {
 				s = ann.RectString()
 				fill3 := strings.Repeat(" ", maxLen.Rect-len(s))
 
-				ss = append(ss, fmt.Sprintf("     %s%d %s %s%s %s %s%s %s %s",
-					fill1, objNr, draw.VBar, fill2, ann.ID(), draw.VBar, fill3, ann.RectString(), draw.VBar, ann.ContentString()))
+				if ann.Type() != model.AnnCustom {
+					ss = append(ss, fmt.Sprintf("     %s%d %s %s%s %s %s%s %s %s",
+						fill1, objNr, draw.VBar, fill2, ann.ID(), draw.VBar, fill3, ann.RectString(), draw.VBar, ann.ContentString()))
+				} else {
+					s = ann.ContentString()
+					fill4 := strings.Repeat(" ", maxLen.Content-len(s))
+					ss = append(ss, fmt.Sprintf("     %s%d %s %s%s %s %s%s %s %s%s%s %s",
+						fill1, objNr, draw.VBar, fill2, ann.ID(), draw.VBar, fill3, ann.RectString(), draw.VBar, fill4, ann.ContentString(), draw.VBar, ann.CustomTypeString()))
+				}
 
 				j++
 			}
