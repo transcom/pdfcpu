@@ -140,9 +140,17 @@ func pageNodeDict(ctx *model.Context, o types.Object) (types.Dict, *types.Indire
 		return nil, nil, errors.New("pdfcpu: pageNodeDict: pageNodeDict is null")
 	}
 
-	dictType := d.Type()
-	if dictType == nil {
-		return nil, nil, errors.New("pdfcpu: pageNodeDict: missing pageNodeDict type")
+	if ctx != nil && ctx.Configuration != nil && ctx.Configuration.ValidationMode == model.ValidationStrict {
+		// Only check for pageNodeDict type if validation is set to strict
+		// otherwise, it's okay if we don't have it.
+		// See:
+		// https://github.com/pdfcpu/pdfcpu/issues/1020
+		// https://github.com/pdfcpu/pdfcpu/pull/1021
+		// https://github.com/pdfcpu/pdfcpu/commit/01d72b13616093c27e44979ea1706240fb685e24
+		dictType := d.Type()
+		if dictType == nil {
+			return nil, nil, errors.New("pdfcpu: pageNodeDict: missing pageNodeDict type")
+		}
 	}
 
 	return d, &indRef, nil
@@ -162,8 +170,15 @@ func writeKids(ctx *model.Context, a types.Array, pageNr *int) (types.Array, int
 			continue
 		}
 
+		if ctx != nil && ctx.Configuration != nil && ctx.Configuration.ValidationMode == model.ValidationRelaxed && d.Type() == nil {
+			// If d.Type() is nil and validation is relaxed, we can ignore tree "Type"
+			// See:
+			// https://github.com/pdfcpu/pdfcpu/issues/1020
+			// https://github.com/pdfcpu/pdfcpu/pull/1021
+			// https://github.com/pdfcpu/pdfcpu/commit/01d72b13616093c27e44979ea1706240fb685e24
+			continue
+		}
 		switch *d.Type() {
-
 		case "Pages":
 			// Recurse over pagetree
 			skip, c, err := writePagesDict(ctx, ir, pageNr)
