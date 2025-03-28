@@ -2311,8 +2311,8 @@ func readStreamContent(rd io.Reader, streamLength int) ([]byte, error) {
 	return buf, nil
 }
 
-func ensureStreamLength(sd *types.StreamDict, rawContent []byte, fixLength bool) {
-	l := int64(len(rawContent))
+func ensureStreamLength(sd *types.StreamDict, fixLength bool) {
+	l := int64(len(sd.Raw))
 	if fixLength || sd.StreamLength == nil || l != *sd.StreamLength {
 		sd.StreamLength = &l
 		sd.Dict["Length"] = types.Integer(l)
@@ -2366,9 +2366,9 @@ func loadEncodedStreamContent(c context.Context, ctx *model.Context, sd *types.S
 		return err
 	}
 
-	ensureStreamLength(sd, rawContent, fixLength)
-
 	sd.Raw = rawContent
+
+	ensureStreamLength(sd, fixLength)
 
 	if log.ReadEnabled() {
 		log.Read.Printf("loadEncodedStreamContent: end: len(streamDictRaw)=%d\n", len(sd.Raw))
@@ -2403,8 +2403,7 @@ func saveDecodedStreamContent(ctx *model.Context, sd *types.StreamDict, objNr, g
 		if sd.Raw, err = decryptStream(sd.Raw, objNr, genNr, ctx.EncKey, ctx.AES4Streams, ctx.E.R); err != nil {
 			return err
 		}
-		l := int64(len(sd.Raw))
-		sd.StreamLength = &l
+		ensureStreamLength(sd, true)
 	}
 
 	if !decode {
@@ -2679,10 +2678,14 @@ func loadStreamDict(c context.Context, ctx *model.Context, sd *types.StreamDict,
 		return errors.Wrapf(err, "dereferenceObject: problem dereferencing stream %d", objNr)
 	}
 
+	// Decode stream content.
+	if err := saveDecodedStreamContent(ctx, sd, objNr, genNr, ctx.DecodeAllStreams); err != nil {
+		return err
+	}
+
 	ctx.Read.BinaryTotalSize += *sd.StreamLength
 
-	// Decode stream content.
-	return saveDecodedStreamContent(ctx, sd, objNr, genNr, ctx.DecodeAllStreams)
+	return nil
 }
 
 func updateBinaryTotalSize(ctx *model.Context, o types.Object) {
