@@ -22,7 +22,6 @@ import (
 	"bytes"
 	"crypto/aes"
 	"crypto/cipher"
-	"crypto/md5"
 	"crypto/rand"
 	"crypto/rc4"
 	"crypto/sha256"
@@ -201,7 +200,7 @@ func encKey(userpw string, e *model.Enc) (key []byte) {
 	}
 
 	// 2b
-	h := md5.New()
+	h := sha256.New()
 	h.Write(pw)
 
 	// 2c
@@ -286,7 +285,7 @@ func key(ownerpw, userpw string, r, l int) (key []byte) {
 	}
 
 	// 3b
-	h := md5.New()
+	h := sha256.New()
 	h.Write(pw)
 	key = h.Sum(nil)
 
@@ -381,7 +380,7 @@ func u(ctx *model.Context) (u []byte, key []byte, err error) {
 
 	case 3, 4:
 		// 5b
-		h := md5.New()
+		h := sha256.New()
 		h.Reset()
 		h.Write(pad)
 
@@ -1197,7 +1196,7 @@ func supportedEncryption(ctx *model.Context, d types.Dict) (*model.Enc, error) {
 }
 
 func decryptKey(objNumber, generation int, key []byte, aes bool) []byte {
-	m := md5.New()
+	m := sha256.New()
 
 	nr := uint32(objNumber)
 	b1 := []byte{byte(nr), byte(nr >> 8), byte(nr >> 16)}
@@ -1623,7 +1622,7 @@ func fileID(ctx *model.Context) (types.HexLiteral, error) {
 	// causing them to produce different file identifiers for the same file created at the same time,
 	// but the uniqueness of the identifier is not affected.
 
-	h := md5.New()
+	h := sha256.New()
 
 	// Current timestamp.
 	h.Write([]byte(time.Now().String()))
